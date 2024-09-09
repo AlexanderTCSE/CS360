@@ -30,18 +30,24 @@ int lineNum(char *dictionaryName, char *word, int length) {
 	char *buffer = (char *)malloc(length);
 	int count=0;
 	int padding = (sizeof(buffer)-strlen(word));
+
+	//debug
+	printf("User's word: <%s>\nPadding: %d\n",word,padding);
+
+	//pad user's word to match the bytes in buffer
 	for(int i=0;i<padding;i++){
 		strcat(word," ");
 	}
 	int attempt = sizeof(buffer);
 	int gotWord;
 	//main while loop to read in [attempt] bytes at a time
+	printf("Searching for <%s>\n",word);
 	while((gotWord=read(fd,buffer,attempt)) > 0){	
 		count++;		
 		if(strcmp(buffer,word) == 0){
 			printf("Word matched at line <%d>.\n",count);
 			fflush(stdout);
-			exit(0);
+			break;	
 		}	
 		write(1,buffer,gotWord);	
 	}
