@@ -12,8 +12,9 @@ description:
 #include<string.h>
 #include<errno.h>
 
-//homemade strlen prototype
+//homemade string prototypes
 int strlength(const char *string);
+void copy(char *word1, char *word2);
 
 /**********************************************************************
 Search for given word in dictionary using file descriptor fd.
@@ -21,7 +22,6 @@ Return the line number the word was found on, negative of the last line searched
 if not found, or the error number if an error occurs.
 **********************************************************************/
 int lineNum(char *dictionaryName, char *word, int length) {
-
 	//open file and error check that it exists
 	int fd = open(dictionaryName, O_RDONLY, 0);
 	if(fd==-1){
@@ -30,7 +30,7 @@ int lineNum(char *dictionaryName, char *word, int length) {
 	}
 
 	//find number of line in file
-	off_t filesize=lseek(fd,0,SEEK_END);
+	int filesize=lseek(fd,0,SEEK_END);
 	if(filesize==-1){
 		write(2,strerror(errno),strlength(strerror(errno)));
 		close(fd);
@@ -41,44 +41,65 @@ int lineNum(char *dictionaryName, char *word, int length) {
 	int numLines=filesize/length;
 
 	//initialize buffer to read in fixed amt of bytes
-	char buffer[length];
+	char buffer[length+1];
+	char inWord[length+1];
+
+	copy(word,inWord);
+	inWord[length]='\0';
 
 	//if user's word is longer than length, truncate
 	if(strlength(word) >= length){
-		word[length-1]='\n';
-		word[length]='\0';
+		inWord[length-1]='\n';
+		inWord[length]='\0';
 	}
 
 	//pad user's word to match the bytes in buffer	
 	int padding = length-strlength(word)-1;
 	for(int i=0;i<padding;i++){
-		strcat(word," ");	//add whitespace to pad
+		strcat(inWord," ");	//add whitespace to pad
 	}
-	word[length-1]='\n';		//length-1 is a newline
-	word[length]='\0';		//finish with nullterm to make it a string
+	inWord[length-1]='\n';		//length-1 is a newline
+	inWord[length]='\0';		//finish with nullterm to make it a string
 	lseek(fd,0,SEEK_SET);		//reset seek head to beginning of fd
 	
 	//other initializations		
 	int gotWord;
 	int low=0;
-	int high=numLines=1;
-	int mid;
-	int count=0;
+	int high=numLines-1;
+	int mid;	
 
-	//main while loop to read in [length] bytes at a time	
-	while((gotWord=read(fd,buffer,length)) > 0){	
-		count++;		
+	//main while loop to read in [length] bytes at a time, and conduct binary search	
+	while(low <= high){	
+		mid=low+(high-low)/2;
+		int offset=mid*length;
+
+		//seek to middle of file, begin reading
+		lseek(fd,offset,SEEK_SET);
+		int gotWord=read(fd,buffer,length);
 		buffer[gotWord]='\0';
-		if(strcmp(buffer,word) == 0){
-			printf("Word matched at line <%d>.\n",count);
-			fflush(stdout);	
+		int cmp=strcmp(buffer,inWord);
+
+		//if 0, word matched, else do binary search
+		if(cmp==0){
+			printf("Word matched at line <%d>.\n",mid+1);
 			close(fd);
-			return count;
-		}			
+			return mid+1;
+		}else if(cmp<0){
+			low=mid+1;
+		}else{
+			high=mid-1;
+		}
 	}
-	printf("Word not found, reached line <-%d>.\n",count);	
+
+	//edge case handling
+	if(low==0){
+		printf("Word not found, reached line <-1>.\n");
+		close(fd);
+		return -1;
+	}
+	printf("Word not found, reached line <-%d>.\n",low);	
 	close(fd);
-	return -count;
+	return -low;
 }
 
 //homemade strlen function
@@ -90,6 +111,17 @@ int strlength(const char *string){
 	return len;
 }
 
+//homemade strcpy function
+void copy(char *word1, char *word2){
+	while(*word1 != '\0'){
+		*word2 = *word1;
+		word1++;
+		word2++;
+	}
+	*word2='\0';
+}
+
+
 int main(int argc, char *argv[]){
 	//mostly a test case to use cmd line arguments
 	char *dict=argv[1];
@@ -97,3 +129,4 @@ int main(int argc, char *argv[]){
 	int length=atoi(argv[3]);
 	lineNum(dict,word,length);
 }
+
