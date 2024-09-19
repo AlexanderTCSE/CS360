@@ -127,10 +127,10 @@ int readable(char* inputPath) {
 	return fileCount;
 }
 
-/*
+
 int main(int argc, char *argv[]){
 	char *path=argv[1];
 	int total=readable(path);
 	printf("Total readable files found: %d\n",total);
 }
-*/
+
