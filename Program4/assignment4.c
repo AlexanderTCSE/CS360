@@ -23,6 +23,7 @@ description:
     <arg1> is not.
 **********************************************************************/
 
+void execCmd(char *cmd);
 
 int main(int argc, char *argv[]){
 	//handle memory for input string	
@@ -33,28 +34,70 @@ int main(int argc, char *argv[]){
 	char *input=malloc(length);
 
 	//strcat all args into one input string
-	strcpy(input,argv[1]);	
-	for(int i=2;i<argc;i++){
-		strcat(input," ");
+	input[0]='\0';
+	for(int i=1;i<argc;i++){
 		strcat(input,argv[i]);
+		//put spaces between args until the last arg
+		if(i < argc-1){
+			strcat(input," ");
+		}
 	}
-	printf("Full input: <%s>\n",input);
+	//printf("Full input: <%s>\n",input);
 
-	//split full input into two strings cmd1 and cmd2 for exec-ing
-	//also remove trailing and leading spaces from cmd1 and cmd2
+	//split full input into two strings cmd1 and cmd2 for exec-ing	
 	char *cmd1 = strtok(input,":");
-	//this is sort of ugly. if something breaks with input, it's probably here
-	cmd1[strlen(cmd1)-1]=0;
-	char *cmd2 = strtok(NULL,": ");
-	printf("cmd 1: <%s>\n",cmd1);
-	printf("cmd 2: <%s>\n",cmd2);
+	char *cmd2 = strtok(NULL,":");	
+	//printf("cmd 1: <%s>\n",cmd1);
+	//printf("cmd 2: <%s>\n",cmd2);
 
-	//[TODO] the rest
-	//figure out fork(), and create two processes on either end of a pipe()
-	//cmd1 should be parent and run with stdout=pipe write end
-	//cmd2 should be child and run with stdin=pipe read end
-	//LOOK AT PIPES.C ON CANVAS
+	int pipefd[2];
+	pipe(pipefd);
+	pid_t pid = fork();
+	//error fork
+	if(pid == -1){
+		fprintf(stderr, "%s\n",strerror(errno));
+		free(input);
+		return EXIT_FAILURE;
+	}
+	//child fork
+	if(pid == 0){
+		if(cmd2 != NULL){
+			close(pipefd[1]);		//close write end of child
+			dup2(pipefd[0], STDIN_FILENO);	//redirect stdin to read end of pipe
+			close(pipefd[0]);		//close original read end of pipe
+			execCmd(cmd2);			//execute command	
+		}else{
+			exit(0);	//if no cmd2, just exit out
+		}	
+	//parent fork
+	}else{	
+		if(cmd2 != NULL){
+			//if cmd2, pipe		
+			close(pipefd[0]);		//close read end of parent
+			dup2(pipefd[1], STDOUT_FILENO);	//redirect stdout to write end of pipe
+			close(pipefd[1]);		//close write end of pipe		
+		}else{	
+			//if no cmd2, no pipe
+			close(pipefd[0]);
+			close(pipefd[1]);
+		}
+		execCmd(cmd1);
+	}
+	int status;
+	wait(&status);
 
 	free(input);	
 	return 0;
+}
+
+void execCmd(char *cmd){
+	char *args[64];
+	int i=0;
+	char *token=strtok(cmd," ");	
+	while(token != NULL){
+		args[i++]=token;
+		token=strtok(NULL," ");
+	}
+	args[i]=NULL;
+	execvp(args[0], args);
 }
