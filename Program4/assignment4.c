@@ -1,5 +1,5 @@
 /***********************************************************************
-name:
+name: Alexander Tattersall
 	assignment4 -- acts as a pipe using ":" to seperate programs.
 description:	
 	See CS 360 Processes and Exec/Pipes lecture for helpful tips.
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]){
 	//printf("cmd 1: <%s>\n",cmd1);
 	//printf("cmd 2: <%s>\n",cmd2);
 
-	int pipefd[2];
+	int pipefd[2];		
 	pipe(pipefd);
 	pid_t pid = fork();
 	//error fork
@@ -61,31 +61,23 @@ int main(int argc, char *argv[]){
 	}
 	//child fork
 	if(pid == 0){
-		if(cmd2 != NULL){
-			close(pipefd[1]);		//close write end of child
-			dup2(pipefd[0], STDIN_FILENO);	//redirect stdin to read end of pipe
-			close(pipefd[0]);		//close original read end of pipe
-			execCmd(cmd2);			//execute command	
-		}else{
-			exit(0);	//if no cmd2, just exit out
-		}	
-	//parent fork
-	}else{	
-		if(cmd2 != NULL){
-			//if cmd2, pipe		
-			close(pipefd[0]);		//close read end of parent
+		if(cmd2){
+			close(pipefd[0]);		//close read end of child
 			dup2(pipefd[1], STDOUT_FILENO);	//redirect stdout to write end of pipe
-			close(pipefd[1]);		//close write end of pipe		
-		}else{	
-			//if no cmd2, no pipe
-			close(pipefd[0]);
-			close(pipefd[1]);
+			close(pipefd[1]);		//close original write end of pipe	
 		}
-		execCmd(cmd1);
+		execCmd(cmd1);			//execute command	
+	//parent fork
+	}else{
+		if(cmd2){
+			close(pipefd[1]);	
+			dup2(pipefd[0], STDIN_FILENO);	//redirect stdin to write end of pipe
+			close(pipefd[0]);		//close read end of pipe			
+			execCmd(cmd2);
+		}		
 	}
 	int status;
 	wait(&status);
-
 	free(input);	
 	return 0;
 }
@@ -99,5 +91,7 @@ void execCmd(char *cmd){
 		token=strtok(NULL," ");
 	}
 	args[i]=NULL;
-	execvp(args[0], args);
+	if(execvp(args[0], args) == -1){
+		fprintf(stdout,"%s\n",strerror(errno));
+	}
 }
